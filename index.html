@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 모의 면접관</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; padding: 40px; }
+        #chat-box { 
+            background: white; padding: 20px 30px; border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 600px; margin: 0 auto; line-height: 1.8; font-size: 16px;
+        }
+        /* 타자 치는 느낌을 살려줄 깜빡이는 커서 */
+        .cursor { 
+            display: inline-block; width: 8px; height: 18px; background-color: #333; 
+            animation: blink 1s step-end infinite; vertical-align: middle; margin-left: 4px;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+    <div id="chat-box">
+        <strong>🤖 AI 면접관: </strong>
+        <span id="ai-response"></span><span class="cursor" id="cursor"></span>
+    </div>
+
+    <script>
+        const aiResponseSpan = document.getElementById('ai-response');
+        const cursor = document.getElementById('cursor');
+
+        // 서버의 SSE 스트리밍 주소로 파이프(연결) 생성
+        const eventSource = new EventSource('/ask/stream');
+
+        // 서버에서 Flusher로 데이터를 밀어낼 때마다 이 함수가 실행
+        eventSource.onmessage = function(event) {
+            // event.data 안에는 서버에서 보낸 한글 단어들이 들어있음
+            aiResponseSpan.innerHTML += event.data;
+        };
+
+        // AI가 답변을 마쳤거나 에러가 나서 연결이 끊어지면 실행
+        eventSource.onerror = function() {
+            eventSource.close(); // 파이프 닫기
+            cursor.style.display = 'none'; // 타자 치기가 끝났으니 커서를 숨김
+        };
+    </script>
+</body>
+</html>
