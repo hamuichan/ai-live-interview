@@ -9,10 +9,21 @@ import (
 	"strings"
 
 	"github.com/google/generative-ai-go/genai"
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
+
+// HTTP 연결을 WebSocket 연결로 업그레이드해 주는 객체
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	// CORS 에러 방지: 일단 모든 도메인에서의 접속을 허용 (토이 프로젝트용)
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
 
 func main() {
 	// .env 파일 로드
@@ -20,6 +31,9 @@ func main() {
 	if err != nil {
 		log.Println("경고: .env 파일을 찾을 수 없습니다. OS 환경변수를 사용합니다.")
 	}
+
+	hub := NewHub()
+	go hub.Run()
 
 	// 기존 기본 라우터
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -118,6 +132,25 @@ func main() {
 				flusher.Flush()
 			}
 		}
+	})
+
+	// 웹소켓 라우터
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Println("웹소켓 업그레이드 실패:", err)
+			return
+		}
+
+		// 새로운 참여자(Client) 생성
+		client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+
+		// 방장(Hub)의 입장 우편함에 나를 등록
+		client.hub.register <- client
+
+		// 데이터를 읽고 쓰는 두 명의 요정(고루틴)을 백그라운드에 띄움
+		go client.writePump() // 서버 -> 브라우저
+		go client.readPump()  // 브라우저 -> 서버
 	})
 
 	fmt.Println("서버가 8080 포트에서 실행 중입니다... (http://localhost:8080)")

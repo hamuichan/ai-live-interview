@@ -2,44 +2,87 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>AI 모의 면접관</title>
+    <title>AI 모의 면접 워크스페이스</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; padding: 40px; }
-        #chat-box { 
-            background: white; padding: 20px 30px; border-radius: 12px; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 600px; margin: 0 auto; line-height: 1.8; font-size: 16px;
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f4f9; padding: 20px; display: flex; gap: 20px; }
+        
+        /* 왼쪽: AI 면접관 채팅방 */
+        #chat-section { 
+            flex: 1; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+            max-height: 80vh; overflow-y: auto; line-height: 1.8;
         }
-        /* 타자 치는 느낌을 살려줄 깜빡이는 커서 */
-        .cursor { 
-            display: inline-block; width: 8px; height: 18px; background-color: #333; 
-            animation: blink 1s step-end infinite; vertical-align: middle; margin-left: 4px;
+        
+        /* 오른쪽: 실시간 코드 에디터 */
+        #editor-section { flex: 1; display: flex; flex-direction: column; }
+        #code-editor { 
+            flex: 1; padding: 15px; font-family: 'Courier New', monospace; font-size: 16px; 
+            border: 2px solid #ddd; border-radius: 12px; outline: none; resize: none; background-color: #282c34; color: #abb2bf;
         }
+        #code-editor:focus { border-color: #61afef; }
+        h3 { margin-top: 0; color: #333; }
+        
+        .cursor { display: inline-block; width: 8px; height: 18px; background-color: #333; animation: blink 1s step-end infinite; vertical-align: middle; margin-left: 4px; }
         @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
-    <div id="chat-box">
-        <strong>🤖 AI 면접관: </strong>
+
+    <div id="chat-section">
+        <h3>🤖 AI 면접관</h3>
+        <strong>답변: </strong>
         <span id="ai-response"></span><span class="cursor" id="cursor"></span>
     </div>
 
+    <div id="editor-section">
+        <h3>💻 실시간 코드 워크스페이스</h3>
+        <textarea id="code-editor" placeholder="여기에 코드를 작성하면 실시간으로 공유됩니다..."></textarea>
+    </div>
+
     <script>
+        // ==========================================
+        // 1. AI 면접관 스트리밍 (SSE)
+        // ==========================================
         const aiResponseSpan = document.getElementById('ai-response');
         const cursor = document.getElementById('cursor');
-
-        // 서버의 SSE 스트리밍 주소로 파이프(연결) 생성
         const eventSource = new EventSource('/ask/stream');
 
-        // 서버에서 Flusher로 데이터를 밀어낼 때마다 이 함수가 실행
         eventSource.onmessage = function(event) {
-            // event.data 안에는 서버에서 보낸 한글 단어들이 들어있음
             aiResponseSpan.innerHTML += event.data;
         };
-
-        // AI가 답변을 마쳤거나 에러가 나서 연결이 끊어지면 실행
         eventSource.onerror = function() {
-            eventSource.close(); // 파이프 닫기
-            cursor.style.display = 'none'; // 타자 치기가 끝났으니 커서를 숨김
+            eventSource.close();
+            cursor.style.display = 'none';
+        };
+
+        // ==========================================
+        // 2. 실시간 동시 편집기 (WebSocket)
+        // ==========================================
+        const editor = document.getElementById('code-editor');
+        const ws = new WebSocket('ws://localhost:8080/ws');
+        
+        // ⭐️ 무한 루프를 막아줄 잠금장치!
+        let isReceiving = false; 
+
+        ws.onopen = () => console.log("✅ 웹소켓 워크스페이스 연결 완료!");
+
+        // 내가 키보드를 쳐서 내용이 바뀌었을 때 (이벤트 리스너)
+        editor.addEventListener('input', () => {
+            // 서버에서 받은 내용을 화면에 그리는 중이 아닐 때만 전송
+            if (!isReceiving) {
+                ws.send(editor.value);
+            }
+        });
+
+        // 서버(다른 사람)로부터 변경된 코드가 날아왔을 때
+        ws.onmessage = (event) => {
+            // 1. 내가 보낸 걸로 착각하지 않게 잠금장치를 켬
+            isReceiving = true; 
+            
+            // 2. 다른 사람이 쓴 코드를 내 화면에 덮어씌움
+            editor.value = event.data; 
+            
+            // 3. 덮어씌우기가 끝나면 잠금장치를 다시 품
+            isReceiving = false; 
         };
     </script>
 </body>
