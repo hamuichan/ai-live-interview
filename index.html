@@ -27,10 +27,17 @@
 </head>
 <body>
 
-    <div id="chat-section">
+    <div id="chat-section" style="display: flex; flex-direction: column;">
         <h3>🤖 AI 면접관</h3>
-        <strong>답변: </strong>
-        <span id="ai-response"></span><span class="cursor" id="cursor"></span>
+        <div id="chat-log" style="flex: 1; overflow-y: auto; margin-bottom: 15px;">
+            <span id="ai-response">환영합니다! 우측에 코드를 작성하고 아래에 질문을 남겨주세요.</span>
+            <span class="cursor" id="cursor" style="display: none;"></span>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="chat-input" placeholder="이 코드의 시간 복잡도는?" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; outline: none;">
+            <button id="send-btn" style="padding: 10px 20px; background: #282c34; color: white; border: none; border-radius: 8px; cursor: pointer;">질문하기</button>
+        </div>
     </div>
 
     <div id="editor-section">
@@ -40,27 +47,70 @@
 
     <script>
         // ==========================================
-        // 1. AI 면접관 스트리밍 (SSE)
+        // 1. AI 면접관 (fetch 기반 POST 스트리밍)
         // ==========================================
+        const chatLog = document.getElementById('chat-log');
         const aiResponseSpan = document.getElementById('ai-response');
         const cursor = document.getElementById('cursor');
-        const eventSource = new EventSource('/ask/stream');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const editor = document.getElementById('code-editor'); // 웹소켓 코드 에디터 참조
 
-        eventSource.onmessage = function(event) {
-            aiResponseSpan.innerHTML += event.data;
-        };
-        eventSource.onerror = function() {
-            eventSource.close();
-            cursor.style.display = 'none';
-        };
+        sendBtn.addEventListener('click', async () => {
+            const question = chatInput.value;
+            const currentCode = editor.value; // 에디터의 현재 코드를 가져옴
+            
+            if (!question) return;
+
+            // 내가 보낸 질문 화면에 표시
+            aiResponseSpan.innerHTML += `<br><br><strong>🧑‍💻 나: </strong>${question}<br><strong>🤖 AI: </strong>`;
+            chatInput.value = '';
+            cursor.style.display = 'inline-block';
+
+            try {
+                // POST 방식으로 질문과 코드를 함께 보냄
+                const response = await fetch('/ask/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: question, code: currentCode })
+                });
+
+                // 스트리밍 데이터를 읽어들이는 파이프라인
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    // 서버에서 보낸 "data: 내용\n\n" 형식을 파싱해서 화면에 출력
+                    const lines = chunk.split('\n\n');
+                    lines.forEach(line => {
+                        if (line.startsWith('data: ')) {
+                            aiResponseSpan.innerHTML += line.substring(6);
+                            chatLog.scrollTop = chatLog.scrollHeight; // 스크롤 맨 아래로 유지
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("AI 연결 에러:", error);
+            } finally {
+                cursor.style.display = 'none'; // 타자 치기 종료
+            }
+        });
+
+        // 엔터키를 눌러도 전송되게 만들기
+        chatInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') sendBtn.click();
+        });
 
         // ==========================================
         // 2. 실시간 동시 편집기 (WebSocket)
         // ==========================================
-        const editor = document.getElementById('code-editor');
         const ws = new WebSocket('ws://localhost:8080/ws');
         
-        // ⭐️ 무한 루프를 막아줄 잠금장치!
+        // 무한 루프를 막아줄 잠금장치
         let isReceiving = false; 
 
         ws.onopen = () => console.log("✅ 웹소켓 워크스페이스 연결 완료!");

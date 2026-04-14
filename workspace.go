@@ -21,6 +21,7 @@ type Hub struct {
 	broadcast  chan []byte      // 누군가 전체 공지를 날릴 때 쓰는 '방송용 우편함'
 	register   chan *Client     // 새로운 사람이 입장할 때 쓰는 '입장 우편함'
 	unregister chan *Client     // 사람이 퇴장할 때 쓰는 '퇴장 우편함'
+	content    []byte           // 현재 공유되는 코드 내용
 }
 
 // 처음 방(Hub)을 만들 때 초기화해 주는 함수
@@ -30,6 +31,7 @@ func NewHub() *Hub {
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
+		content:    []byte(""),
 	}
 }
 
@@ -44,6 +46,7 @@ func (h *Hub) Run() {
 		// 1) 누군가 입장 우편함에 들어왔다면?
 		case client := <-h.register:
 			h.clients[client] = true // 출석부에 이름 적기
+			client.send <- h.content // 현재 공유되는 코드 내용 보내주기
 
 		// 2) 누군가 퇴장 우편함에 들어왔다면?
 		case client := <-h.unregister:
@@ -54,6 +57,7 @@ func (h *Hub) Run() {
 
 		// 3) 누군가 방송용 우편함에 메시지를 넣었다면? (코드 수정 발생!)
 		case message := <-h.broadcast:
+			h.content = message // 현재 공유되는 코드 내용 업데이트
 			// 출석부에 있는 "모든 사람"에게 편지를 복사해서 쫙 돌림
 			for client := range h.clients {
 				select {
