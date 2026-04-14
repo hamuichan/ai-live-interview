@@ -53,7 +53,7 @@ func HandleAIStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer client.Close()
 
-	model := client.GenerativeModel("gemini-3.1-flash-lite-preview")
+	model := client.GenerativeModel("gemini-3-flash-preview")
 
 	// 3. '맥락 인지' 프롬프트 조립
 	// 지원자의 코드와 질문을 합쳐서 AI 면접관에게 쥐어줌.

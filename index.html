@@ -2,138 +2,239 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>AI 모의 면접 워크스페이스</title>
+    <title>AI Tech Interview Workspace</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/material-darker.min.css">
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/go/go.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f4f9; padding: 20px; display: flex; gap: 20px; }
+        /* ⭐️ 1. 다크/라이트 모드를 위한 CSS 변수 (디자인 토큰) */
+        :root {
+            --bg-color: #0f111a;
+            --glass-bg: rgba(26, 28, 37, 0.65);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --ai-bubble: rgba(40, 44, 52, 0.8);
+            --ai-text: #e2e8f0;
+            --user-bubble: #82aaff;
+            --user-text: #0f111a;
+            --editor-bg: #1e212b;
+            --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        body.light-mode {
+            --bg-color: #f1f5f9;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --border-color: rgba(0, 0, 0, 0.1);
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --ai-bubble: #ffffff;
+            --ai-text: #1e293b;
+            --user-bubble: #3b82f6;
+            --user-text: #ffffff;
+            --editor-bg: #ffffff;
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        /* ⭐️ 2. 기본 레이아웃 & 폰트 */
+        body { 
+            font-family: 'Pretendard Variable', -apple-system, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            margin: 0; display: flex; height: 100vh; overflow: hidden; 
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
         
-        /* 왼쪽: AI 면접관 채팅방 */
+        /* ⭐️ 3. 커스텀 스크롤바 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* 글래스모피즘 패널 */
         #chat-section { 
-            flex: 1; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
-            max-height: 80vh; overflow-y: auto; line-height: 1.8;
+            width: 400px; 
+            background: var(--glass-bg); 
+            backdrop-filter: blur(12px); /* 블러 효과 */
+            border-right: 1px solid var(--border-color); 
+            display: flex; flex-direction: column; z-index: 10;
         }
         
-        /* 오른쪽: 실시간 코드 에디터 */
-        #editor-section { flex: 1; display: flex; flex-direction: column; }
-        #code-editor { 
-            flex: 1; padding: 15px; font-family: 'Courier New', monospace; font-size: 16px; 
-            border: 2px solid #ddd; border-radius: 12px; outline: none; resize: none; background-color: #282c34; color: #abb2bf;
-        }
-        #code-editor:focus { border-color: #61afef; }
-        h3 { margin-top: 0; color: #333; }
+        #editor-section { flex: 1; display: flex; flex-direction: column; background: var(--editor-bg); transition: background 0.3s; }
         
-        .cursor { display: inline-block; width: 8px; height: 18px; background-color: #333; animation: blink 1s step-end infinite; vertical-align: middle; margin-left: 4px; }
-        @keyframes blink { 50% { opacity: 0; } }
+        /* 헤더 & 토글 버튼 */
+        .header { 
+            padding: 20px; border-bottom: 1px solid var(--border-color); 
+            display: flex; justify-content: space-between; align-items: center; font-weight: 700; 
+        }
+        .theme-toggle {
+            background: none; border: 1px solid var(--border-color); color: var(--text-main);
+            padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85em; transition: 0.2s;
+        }
+        .theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
+
+        /* ⭐️ 4. 메시지 버블 (Message Bubbles) */
+        #chat-log { 
+            flex: 1; overflow-y: auto; padding: 20px; min-height: 0; 
+            display: flex; flex-direction: column; gap: 15px;
+        }
+        
+        .bubble {
+            max-width: 85%; padding: 12px 16px; border-radius: 16px; 
+            font-size: 0.95em; line-height: 1.5; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .bubble.ai { 
+            background: var(--ai-bubble); color: var(--ai-text); 
+            align-self: flex-start; border-bottom-left-radius: 4px; 
+            border: 1px solid var(--border-color);
+        }
+        .bubble.user { 
+            background: var(--user-bubble); color: var(--user-text); 
+            align-self: flex-end; border-bottom-right-radius: 4px; 
+        }
+
+        /* 입력창 영역 */
+        .input-area { padding: 15px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; background: var(--glass-bg); }
+        #chat-input { 
+            flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-main); 
+            padding: 12px; border-radius: 8px; outline: none; transition: 0.2s; font-family: inherit;
+        }
+        #chat-input:focus { border-color: var(--user-bubble); box-shadow: 0 0 0 2px rgba(130, 170, 255, 0.2); }
+        #send-btn { 
+            background: var(--user-bubble); color: var(--user-text); border: none; 
+            padding: 0 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        #send-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+        /* 에디터 커스텀 */
+        .editor-header { padding: 12px 20px; border-bottom: 1px solid var(--border-color); font-size: 0.85em; color: var(--text-muted); display: flex; justify-content: space-between; }
+        .CodeMirror { height: 100%; font-family: 'Fira Code', 'D2Coding', monospace; font-size: 15px; background: transparent !important; color: var(--text-main) !important; }
+        .CodeMirror-gutters { background: transparent !important; border-right: 1px solid var(--border-color) !important; }
     </style>
 </head>
 <body>
 
-    <div id="chat-section" style="display: flex; flex-direction: column;">
-        <h3>🤖 AI 면접관</h3>
-        <div id="chat-log" style="flex: 1; overflow-y: auto; margin-bottom: 15px;">
-            <span id="ai-response">환영합니다! 우측에 코드를 작성하고 아래에 질문을 남겨주세요.</span>
-            <span class="cursor" id="cursor" style="display: none;"></span>
+    <div id="chat-section">
+        <div class="header">
+            <span>🤖 AI Interviewer</span>
+            <button class="theme-toggle" id="theme-btn">☀️ Light</button>
         </div>
-        
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="chat-input" placeholder="이 코드의 시간 복잡도는?" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd; outline: none;">
-            <button id="send-btn" style="padding: 10px 20px; background: #282c34; color: white; border: none; border-radius: 8px; cursor: pointer;">질문하기</button>
+        <div id="chat-log">
+            <div class="bubble ai">환영합니다! 우측에 코드를 작성하고 질문을 남겨주세요.</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="chat-input" placeholder="이 코드의 시간 복잡도는?" autocomplete="off">
+            <button id="send-btn">Send</button>
         </div>
     </div>
 
     <div id="editor-section">
-        <h3>💻 실시간 코드 워크스페이스</h3>
-        <textarea id="code-editor" placeholder="여기에 코드를 작성하면 실시간으로 공유됩니다..."></textarea>
+        <div class="editor-header">
+            <span>workspace.go (Shared)</span>
+            <span id="sync-status" style="color: #4ade80;">● Online</span>
+        </div>
+        <div id="code-editor-container" style="flex: 1; min-height: 0;"></div>
     </div>
 
     <script>
-        // ==========================================
-        // 1. AI 면접관 (fetch 기반 POST 스트리밍)
-        // ==========================================
+        // 1. 테마 토글 로직
+        const themeBtn = document.getElementById('theme-btn');
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('light-mode');
+            themeBtn.textContent = document.body.classList.contains('light-mode') ? '🌙 Dark' : '☀️ Light';
+        });
+
+        // 2. CodeMirror 초기화
+        const editor = CodeMirror(document.getElementById('code-editor-container'), {
+            value: "// 실시간 코딩 테스트 워크스페이스입니다.\nfunc main() {\n    \n}",
+            mode: "text/x-go", theme: "material-darker", lineNumbers: true, indentUnit: 4, tabSize: 4, lineWrapping: true
+        });
+
+        // 3. 웹소켓 동시 편집
+        const ws = new WebSocket('ws://' + window.location.host + '/ws');
+        let isReceiving = false;
+        ws.onmessage = (event) => {
+            // 내가 치고 있는 코드와 서버에서 온 코드가 다를 때만 덮어씌움 (드래그 풀림 방지)
+            if (editor.getValue() !== event.data) {
+                isReceiving = true;
+                const cursor = editor.getCursor();
+                editor.setValue(event.data);
+                editor.setCursor(cursor);
+                isReceiving = false;
+            }
+        };
+        editor.on('change', () => { if (!isReceiving) ws.send(editor.getValue()); });
+
+        // 4. AI 스트리밍 & 버블 채팅 로직 개편
         const chatLog = document.getElementById('chat-log');
-        const aiResponseSpan = document.getElementById('ai-response');
-        const cursor = document.getElementById('cursor');
         const chatInput = document.getElementById('chat-input');
         const sendBtn = document.getElementById('send-btn');
-        const editor = document.getElementById('code-editor'); // 웹소켓 코드 에디터 참조
+
+        // 채팅 버블을 화면에 추가하는 헬퍼 함수
+        function appendBubble(text, sender) {
+            const bubble = document.createElement('div');
+            bubble.className = `bubble ${sender}`;
+            bubble.innerHTML = text;
+            chatLog.appendChild(bubble);
+            chatLog.scrollTop = chatLog.scrollHeight;
+            return bubble; // 생성된 버블 객체를 반환 (나중에 텍스트를 스트리밍해서 이어붙이기 위함)
+        }
 
         sendBtn.addEventListener('click', async () => {
-            const question = chatInput.value;
-            const currentCode = editor.value; // 에디터의 현재 코드를 가져옴
-            
+            const question = chatInput.value.trim();
+            const currentCode = editor.getValue();
             if (!question) return;
 
-            // 내가 보낸 질문 화면에 표시
-            aiResponseSpan.innerHTML += `<br><br><strong>🧑‍💻 나: </strong>${question}<br><strong>🤖 AI: </strong>`;
+            // 내가 보낸 질문(파란색 버블) 추가
+            appendBubble(question, 'user');
             chatInput.value = '';
-            cursor.style.display = 'inline-block';
+
+            // AI가 답변을 작성할 빈 버블(회색 버블) 미리 생성
+            const aiBubble = appendBubble('<span style="opacity:0.5;">타이핑 중...</span>', 'ai');
+            let isFirstChunk = true; // 첫 글자가 들어올 때 '타이핑 중...' 지우기
 
             try {
-                // POST 방식으로 질문과 코드를 함께 보냄
                 const response = await fetch('/ask/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ question: question, code: currentCode })
                 });
 
-                // 스트리밍 데이터를 읽어들이는 파이프라인
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder("utf-8");
+
+                let fullAiText = "";
 
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
-
+                    
                     const chunk = decoder.decode(value);
-                    // 서버에서 보낸 "data: 내용\n\n" 형식을 파싱해서 화면에 출력
                     const lines = chunk.split('\n\n');
+                    
                     lines.forEach(line => {
                         if (line.startsWith('data: ')) {
-                            aiResponseSpan.innerHTML += line.substring(6);
-                            chatLog.scrollTop = chatLog.scrollHeight; // 스크롤 맨 아래로 유지
+                            if (isFirstChunk) { aiBubble.innerHTML = ''; isFirstChunk = false; }
+                            let textChunk = line.substring(6).replace(/<br>/g, '\n');
+                            fullAiText += textChunk;
+                            aiBubble.innerHTML = marked.parse(fullAiText);
+                            chatLog.scrollTop = chatLog.scrollHeight;
                         }
                     });
                 }
-            } catch (error) {
-                console.error("AI 연결 에러:", error);
-            } finally {
-                cursor.style.display = 'none'; // 타자 치기 종료
-            }
+            } catch (error) { console.error(error); aiBubble.innerHTML = "네트워크 에러가 발생했습니다."; }
         });
 
-        // 엔터키를 눌러도 전송되게 만들기
-        chatInput.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') sendBtn.click();
-        });
-
-        // ==========================================
-        // 2. 실시간 동시 편집기 (WebSocket)
-        // ==========================================
-        const ws = new WebSocket('ws://localhost:8080/ws');
-        
-        // 무한 루프를 막아줄 잠금장치
-        let isReceiving = false; 
-
-        ws.onopen = () => console.log("✅ 웹소켓 워크스페이스 연결 완료!");
-
-        // 내가 키보드를 쳐서 내용이 바뀌었을 때 (이벤트 리스너)
-        editor.addEventListener('input', () => {
-            // 서버에서 받은 내용을 화면에 그리는 중이 아닐 때만 전송
-            if (!isReceiving) {
-                ws.send(editor.value);
-            }
-        });
-
-        // 서버(다른 사람)로부터 변경된 코드가 날아왔을 때
-        ws.onmessage = (event) => {
-            // 1. 내가 보낸 걸로 착각하지 않게 잠금장치를 켬
-            isReceiving = true; 
-            
-            // 2. 다른 사람이 쓴 코드를 내 화면에 덮어씌움
-            editor.value = event.data; 
-            
-            // 3. 덮어씌우기가 끝나면 잠금장치를 다시 품
-            isReceiving = false; 
-        };
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendBtn.click(); });
     </script>
 </body>
 </html>
