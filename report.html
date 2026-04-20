@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 면접 결과 리포트</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <style>
+        :root { --bg: #f8fafc; --card-bg: #ffffff; --text-main: #1e293b; --text-muted: #64748b; --accent: #3b82f6; --border: #e2e8f0; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #0f111a; --card-bg: #1a1c25; --text-main: #e2e8f0; --text-muted: #94a3b8; --accent: #82aaff; --border: #30363d; }
+        }
+
+        body { 
+            font-family: 'Pretendard Variable', -apple-system, sans-serif; 
+            background-color: var(--bg); color: var(--text-main); 
+            line-height: 1.7; margin: 0; padding: 40px 20px;
+        }
+
+        .container { 
+            max-width: 800px; margin: 0 auto; 
+        }
+
+        .header-section {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .btn-home {
+            padding: 8px 16px; background: transparent; border: 1px solid var(--border);
+            color: var(--text-main); border-radius: 8px; text-decoration: none; font-size: 0.9em;
+            transition: 0.2s;
+        }
+        .btn-home:hover { background: var(--border); }
+
+        .report-card {
+            background-color: var(--card-bg); padding: 50px; 
+            border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            border: 1px solid var(--border);
+        }
+
+        .report-card h1 { color: var(--accent); margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 15px; }
+        .report-card h2 { margin-top: 30px; color: var(--text-main); }
+        .report-card pre { background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; overflow-x: auto; font-family: monospace; }
+        @media (prefers-color-scheme: dark) { .report-card pre { background: rgba(255,255,255,0.05); } }
+        
+        .loading { text-align: center; color: var(--text-muted); font-size: 1.2em; padding: 50px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header-section">
+            <h2>🎯 종합 평가 리포트</h2>
+            <a href="/" class="btn-home">← 워크스페이스로 돌아가기</a>
+        </div>
+
+        <div class="report-card">
+            <div id="content"><div class="loading">데이터를 불러오는 중입니다...</div></div>
+        </div>
+    </div>
+
+    <script>
+        // 1. URL에서 '?id=...' 값 추출하기
+        const params = new URLSearchParams(window.location.search);
+        const reportId = params.get('id');
+
+        const contentDiv = document.getElementById('content');
+
+        if (!reportId) {
+            contentDiv.innerHTML = '<p style="color: red;">잘못된 접근입니다. 리포트 ID가 없습니다.</p>';
+        } else {
+            // 2. 백엔드(GetReportAPIHandler)에 해당 ID의 데이터 요청
+            fetch(`/api/report?id=${reportId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('리포트를 찾을 수 없습니다.');
+                    return response.json();
+                })
+                .then(data => {
+                    // 3. 받아온 마크다운 텍스트를 HTML로 예쁘게 변환하여 렌더링!
+                    contentDiv.innerHTML = marked.parse(data.markdown);
+                })
+                .catch(error => {
+                    contentDiv.innerHTML = `<p style="color: red;">${error.message}</p>`;
+                });
+        }
+    </script>
+</body>
+</html>
