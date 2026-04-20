@@ -126,7 +126,11 @@
     <div id="chat-section">
         <div class="header">
             <span>🤖 AI Interviewer</span>
-            <button class="theme-toggle" id="theme-btn">☀️ Light</button>
+            <div style="display: flex; gap: 8px;">
+                <button class="theme-toggle" id="invite-btn" style="background: #10b981; color: white; border: none;">🔗 초대하기</button>
+                <button class="theme-toggle" id="finish-btn" style="background: var(--user-bubble); color: var(--user-text); border: none;">🏁 면접 종료</button>
+                <button class="theme-toggle" id="theme-btn">☀️ Light</button>
+            </div>
         </div>
         <div id="chat-log">
             <div class="bubble ai">환영합니다! 우측에 코드를 작성하고 질문을 남겨주세요.</div>
@@ -235,6 +239,100 @@
         });
 
         chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendBtn.click(); });
+
+        // 5. 면접 종료 및 리포트 생성 로직
+        const finishBtn = document.getElementById('finish-btn');
+        
+        finishBtn.addEventListener('click', async () => {
+            // 1) 클릭 방지 및 로딩 UI 처리
+            finishBtn.innerText = '⏳ 리포트 생성 중...';
+            finishBtn.disabled = true;
+            finishBtn.style.opacity = '0.7';
+
+            // 2) 현재 작성된 코드 가져오기
+            const finalCode = editor.getValue();
+
+            // 3) 화면에 있는 채팅 내역(버블) 텍스트로 긁어모으기
+            let chatLogText = "";
+            document.querySelectorAll('.bubble').forEach(bubble => {
+                const sender = bubble.classList.contains('ai') ? "AI 면접관" : "지원자";
+                chatLogText += `[${sender}]: ${bubble.innerText}\n\n`;
+            });
+
+            try {
+                // 4) 백엔드(GenerateReportHandler)에 데이터 전송
+                const response = await fetch('/report/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: finalCode, chat_log: chatLogText })
+                });
+
+                if (!response.ok) throw new Error('서버 에러');
+
+                const data = await response.json();
+                
+                // 5) 성공적으로 ID를 받았다면, 리포트 페이지로 이동
+                if (data.id) {
+                    window.location.href = `/report?id=${data.id}`;
+                }
+            } catch (error) {
+                console.error(error);
+                alert('리포트 생성에 실패했습니다.');
+                finishBtn.innerText = '🏁 면접 종료';
+                finishBtn.disabled = false;
+                finishBtn.style.opacity = '1';
+            }
+        });
+
+        // 6. 초대 링크 생성 및 즉시 복사 로직
+        const inviteBtn = document.getElementById('invite-btn');
+
+        inviteBtn.addEventListener('click', () => {
+            // 1. 프론트엔드에서 즉시 5자리 난수 생성
+            const shortID = Math.random().toString(36).substring(2, 7);
+            const shortUrl = `${window.location.origin}/r/${shortID}`;
+
+            // 2. 브라우저 호환성을 위한 클립보드 복사 함수 (동기적 실행)
+            const copyToClipboard = () => {
+                if (navigator.clipboard && window.isSecureContext) {
+                    return navigator.clipboard.writeText(shortUrl);
+                } else {
+                    return new Promise((resolve, reject) => {
+                        try {
+                            const textArea = document.createElement("textarea");
+                            textArea.value = shortUrl;
+                            textArea.style.position = "fixed";
+                            textArea.style.opacity = "0";
+                            document.body.appendChild(textArea);
+                            textArea.focus();
+                            textArea.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(textArea);
+                            resolve();
+                        } catch (e) { reject(e); }
+                    });
+                }
+            };
+
+            // 3. 생성 즉시 복사 실행
+            copyToClipboard().then(() => {
+                
+                // 4. 복사가 완료된 후, UI를 업데이트하고 서버에 비동기로 통보
+                const originalText = inviteBtn.innerHTML;
+                inviteBtn.innerHTML = '✅ 복사 완료!';
+                setTimeout(() => { inviteBtn.innerHTML = originalText; }, 2000);
+
+                fetch('/api/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shortId: shortID })
+                });
+
+            }).catch(err => {
+                console.error('클립보드 에러:', err);
+                alert('복사 권한이 차단되었습니다. 수동으로 복사해주세요: ' + shortUrl);
+            });
+        });
     </script>
 </body>
 </html>
