@@ -1,16 +1,23 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <title>AI Tech Interview Workspace</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/material-darker.min.css">
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/material-darker.min.css">
+    <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/go/go.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
 
     <style>
         /* ⭐️ 1. 다크/라이트 모드를 위한 CSS 변수 (디자인 토큰) */
@@ -43,92 +50,253 @@
         }
 
         /* ⭐️ 2. 기본 레이아웃 & 폰트 */
-        body { 
-            font-family: 'Pretendard Variable', -apple-system, sans-serif; 
-            background-color: var(--bg-color); 
-            color: var(--text-main); 
-            margin: 0; display: flex; height: 100vh; overflow: hidden; 
+        body {
+            font-family: 'Pretendard Variable', -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
             transition: background-color 0.3s ease, color 0.3s ease;
         }
-        
+
         /* ⭐️ 3. 커스텀 스크롤바 */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
 
         /* 글래스모피즘 패널 */
-        #chat-section { 
-            width: 400px; 
-            background: var(--glass-bg); 
-            backdrop-filter: blur(12px); /* 블러 효과 */
-            border-right: 1px solid var(--border-color); 
-            display: flex; flex-direction: column; z-index: 10;
+        #chat-section {
+            width: 400px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            /* 블러 효과 */
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
         }
-        
-        #editor-section { flex: 1; display: flex; flex-direction: column; background: var(--editor-bg); transition: background 0.3s; }
-        
+
+        #editor-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--editor-bg);
+            transition: background 0.3s;
+        }
+
         /* 헤더 & 토글 버튼 */
-        .header { 
-            padding: 20px; border-bottom: 1px solid var(--border-color); 
-            display: flex; justify-content: space-between; align-items: center; font-weight: 700; 
+        .header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
         }
+
         .theme-toggle {
-            background: none; border: 1px solid var(--border-color); color: var(--text-main);
-            padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.85em; transition: 0.2s;
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: 0.2s;
         }
-        .theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
+
+        .theme-toggle:hover {
+            background: var(--text-main);
+            color: var(--bg-color);
+        }
 
         /* ⭐️ 4. 메시지 버블 (Message Bubbles) */
-        #chat-log { 
-            flex: 1; overflow-y: auto; padding: 20px; min-height: 0; 
-            display: flex; flex-direction: column; gap: 15px;
+        #chat-log {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
-        
+
         .bubble {
-            max-width: 85%; padding: 12px 16px; border-radius: 16px; 
-            font-size: 0.95em; line-height: 1.5; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 0.95em;
+            line-height: 1.5;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
             animation: fadeIn 0.3s ease-out;
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .bubble.ai { 
-            background: var(--ai-bubble); color: var(--ai-text); 
-            align-self: flex-start; border-bottom-left-radius: 4px; 
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .bubble.ai {
+            background: var(--ai-bubble);
+            color: var(--ai-text);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
             border: 1px solid var(--border-color);
         }
-        .bubble.user { 
-            background: var(--user-bubble); color: var(--user-text); 
-            align-self: flex-end; border-bottom-right-radius: 4px; 
+
+        .bubble.user {
+            background: var(--user-bubble);
+            color: var(--user-text);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
         }
 
         /* 입력창 영역 */
-        .input-area { padding: 15px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; background: var(--glass-bg); }
-        #chat-input { 
-            flex: 1; background: transparent; border: 1px solid var(--border-color); color: var(--text-main); 
-            padding: 12px; border-radius: 8px; outline: none; transition: 0.2s; font-family: inherit;
+        .input-area {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            background: var(--glass-bg);
         }
-        #chat-input:focus { border-color: var(--user-bubble); box-shadow: 0 0 0 2px rgba(130, 170, 255, 0.2); }
-        #send-btn { 
-            background: var(--user-bubble); color: var(--user-text); border: none; 
-            padding: 0 20px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;
+
+        #chat-input {
+            flex: 1;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 8px;
+            outline: none;
+            transition: 0.2s;
+            font-family: inherit;
         }
-        #send-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+        #chat-input:focus {
+            border-color: var(--user-bubble);
+            box-shadow: 0 0 0 2px rgba(130, 170, 255, 0.2);
+        }
+
+        #send-btn {
+            background: var(--user-bubble);
+            color: var(--user-text);
+            border: none;
+            padding: 0 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        #send-btn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
 
         /* 에디터 커스텀 */
-        .editor-header { padding: 12px 20px; border-bottom: 1px solid var(--border-color); font-size: 0.85em; color: var(--text-muted); display: flex; justify-content: space-between; }
-        .CodeMirror { height: 100%; font-family: 'Fira Code', 'D2Coding', monospace; font-size: 15px; background: transparent !important; color: var(--text-main) !important; }
-        .CodeMirror-gutters { background: transparent !important; border-right: 1px solid var(--border-color) !important; }
+        .editor-header {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85em;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .CodeMirror {
+            height: 100%;
+            font-family: 'Fira Code', 'D2Coding', monospace;
+            font-size: 15px;
+            background: transparent !important;
+            color: var(--text-main) !important;
+        }
+
+        .CodeMirror-gutters {
+            background: transparent !important;
+            border-right: 1px solid var(--border-color) !important;
+        }
+
+        /* 💡 1. 헤더 및 버튼 줄바꿈(Squish) 방지 */
+        .header span,
+        .theme-toggle {
+            white-space: nowrap;
+            /* 절대 줄바꿈 하지 마! */
+            flex-shrink: 0;
+            /* 화면이 좁아져도 내 크기를 줄이지 마! */
+        }
+
+        /* 헤더 내부 버튼들 사이의 간격 조정 */
+        .header>div {
+            display: flex;
+            gap: 8px;
+            flex-wrap: nowrap;
+        }
+
+        /* 💡 2. 말풍선 밖으로 코드 탈출 방지 */
+        .bubble {
+            /* 기존 코드 유지... */
+            max-width: 85%;
+            word-break: break-word;
+            /* 일반 텍스트가 길면 강제로 줄바꿈 */
+            overflow: hidden;
+            /* ⭐️ 말풍선 영역을 삐져나가는 건 일단 숨김 */
+        }
+
+        /* 마크다운으로 생성된 <pre> (코드 블록) 전용 스타일 */
+        .bubble pre {
+            max-width: 100%;
+            overflow-x: auto;
+            /* ⭐️ 코드 블록 안에서만 가로 스크롤바 생성! */
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            /* 다크모드에 어울리는 코드 배경색 */
+        }
+
+        /* 코드 블록 가로 스크롤바 예쁘게 튜닝 (선택사항) */
+        .bubble pre::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .bubble pre::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
     </style>
 </head>
+
 <body>
 
     <div id="chat-section">
         <div class="header">
             <span>🤖 AI Interviewer</span>
             <div style="display: flex; gap: 8px;">
-                <button class="theme-toggle" id="invite-btn" style="background: #10b981; color: white; border: none;">🔗 초대하기</button>
-                <button class="theme-toggle" id="finish-btn" style="background: var(--user-bubble); color: var(--user-text); border: none;">🏁 면접 종료</button>
+                <button class="theme-toggle" id="invite-btn" style="background: #10b981; color: white; border: none;">🔗
+                    초대하기</button>
+                <button class="theme-toggle" id="finish-btn"
+                    style="background: var(--user-bubble); color: var(--user-text); border: none;">🏁 면접 종료</button>
                 <button class="theme-toggle" id="theme-btn">☀️ Light</button>
             </div>
         </div>
@@ -143,8 +311,18 @@
 
     <div id="editor-section">
         <div class="editor-header">
-            <span>workspace.go (Shared)</span>
-            <span id="sync-status" style="color: #4ade80;">● Online</span>
+            <span>workspace (Shared)</span>
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <select id="lang-select"
+                    style="background: transparent; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; outline: none; font-family: inherit;">
+                    <option value="text/x-go">Go</option>
+                    <option value="text/x-python">Python</option>
+                    <option value="text/javascript">JavaScript</option>
+                    <option value="text/x-java">Java</option>
+                    <option value="text/x-c++src">C++</option>
+                </select>
+                <span id="sync-status" style="color: #4ade80;">● Online</span>
+            </div>
         </div>
         <div id="code-editor-container" style="flex: 1; min-height: 0;"></div>
     </div>
@@ -161,6 +339,12 @@
         const editor = CodeMirror(document.getElementById('code-editor-container'), {
             value: "// 실시간 코딩 테스트 워크스페이스입니다.\nfunc main() {\n    \n}",
             mode: "text/x-go", theme: "material-darker", lineNumbers: true, indentUnit: 4, tabSize: 4, lineWrapping: true
+        });
+
+        // 🟢 언어 선택 시 CodeMirror 모드(문법 하이라이팅) 변경 로직
+        const langSelect = document.getElementById('lang-select');
+        langSelect.addEventListener('change', (e) => {
+            editor.setOption("mode", e.target.value);
         });
 
         // 3. 웹소켓 동시 편집
@@ -221,10 +405,10 @@
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
-                    
+
                     const chunk = decoder.decode(value);
                     const lines = chunk.split('\n\n');
-                    
+
                     lines.forEach(line => {
                         if (line.startsWith('data: ')) {
                             if (isFirstChunk) { aiBubble.innerHTML = ''; isFirstChunk = false; }
@@ -242,7 +426,7 @@
 
         // 5. 면접 종료 및 리포트 생성 로직
         const finishBtn = document.getElementById('finish-btn');
-        
+
         finishBtn.addEventListener('click', async () => {
             // 1) 클릭 방지 및 로딩 UI 처리
             finishBtn.innerText = '⏳ 리포트 생성 중...';
@@ -270,7 +454,7 @@
                 if (!response.ok) throw new Error('서버 에러');
 
                 const data = await response.json();
-                
+
                 // 5) 성공적으로 ID를 받았다면, 리포트 페이지로 이동
                 if (data.id) {
                     window.location.href = `/report?id=${data.id}`;
@@ -316,7 +500,7 @@
 
             // 3. 생성 즉시 복사 실행
             copyToClipboard().then(() => {
-                
+
                 // 4. 복사가 완료된 후, UI를 업데이트하고 서버에 비동기로 통보
                 const originalText = inviteBtn.innerHTML;
                 inviteBtn.innerHTML = '✅ 복사 완료!';
@@ -335,4 +519,5 @@
         });
     </script>
 </body>
+
 </html>
